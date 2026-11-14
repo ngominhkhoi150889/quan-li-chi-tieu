@@ -1,4 +1,5 @@
 // Sổ chi tiêu - core xử lý dữ liệu, biên dịch sang WebAssembly bằng Emscripten.
+// Danh sách khoản chi do GitHub lưu trữ; C++ giữ bản sao và tính toàn bộ số liệu.
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 
@@ -12,14 +13,14 @@
 namespace {
 
 struct Entry {
-  int id;
+  std::string id;
   std::string name;
+  std::string description;
   double qty;
   double price;
 };
 
 std::vector<Entry> g_entries;
-int g_nextId = 1;
 
 double amountOf(const Entry& entry) { return entry.qty * entry.price; }
 
@@ -39,6 +40,7 @@ emscripten::val toJs(const Entry& entry) {
   emscripten::val object = emscripten::val::object();
   object.set("id", entry.id);
   object.set("name", entry.name);
+  object.set("description", entry.description);
   object.set("qty", entry.qty);
   object.set("price", entry.price);
   object.set("amount", amountOf(entry));
@@ -47,21 +49,22 @@ emscripten::val toJs(const Entry& entry) {
 
 }  // namespace
 
-int addEntry(std::string name, double qty, double price) {
+bool addEntry(std::string id, std::string name, std::string description, double qty,
+              double price) {
+  id = trim(id);
   name = trim(name);
-  if (name.empty() || name.size() > 120 || !isValid(qty, price)) return -1;
+  description = trim(description);
 
-  const int id = g_nextId++;
-  g_entries.push_back({id, std::move(name), qty, price});
-  return id;
-}
+  if (id.empty() || id.size() > 40) return false;
+  if (name.empty() || name.size() > 120) return false;
+  if (description.size() > 500) return false;
+  if (!isValid(qty, price)) return false;
 
-bool removeEntry(int id) {
-  const auto it = std::find_if(g_entries.begin(), g_entries.end(),
-                               [id](const Entry& entry) { return entry.id == id; });
-  if (it == g_entries.end()) return false;
+  const bool duplicated = std::any_of(
+      g_entries.begin(), g_entries.end(), [&id](const Entry& entry) { return entry.id == id; });
+  if (duplicated) return false;
 
-  g_entries.erase(it);
+  g_entries.push_back({id, name, description, qty, price});
   return true;
 }
 
@@ -136,11 +139,10 @@ emscripten::val getBreakdown() {
   return list;
 }
 
-std::string coreVersion() { return "1.0.0"; }
+std::string coreVersion() { return "2.0.0"; }
 
 EMSCRIPTEN_BINDINGS(expense_core) {
   emscripten::function("addEntry", &addEntry);
-  emscripten::function("removeEntry", &removeEntry);
   emscripten::function("clearEntries", &clearEntries);
   emscripten::function("getEntries", &getEntries);
   emscripten::function("getStats", &getStats);

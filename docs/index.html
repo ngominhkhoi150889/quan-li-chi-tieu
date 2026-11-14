@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Ứng dụng thống kê khoản chi tiêu và tổng tiền, xử lý bằng C++ biên dịch sang WebAssembly." />
-  <title>Sổ chi tiêu · C++ WebAssembly</title>
+  <meta name="description" content="Sổ chi tiêu chung: nhiều người cùng xem và thêm khoản chi kèm mô tả; toàn bộ số liệu do C++ biên dịch sang WebAssembly tính." />
+  <title>Sổ chi tiêu chung · C++ WebAssembly</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2310b981'/%3E%3Ctext x='32' y='45' font-size='38' text-anchor='middle' fill='white' font-family='Arial'%3E%E2%82%AB%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -18,8 +18,8 @@
     <a class="brand" href="#">
       <span class="brand-mark" aria-hidden="true">₫</span>
       <span class="brand-text">
-        <span class="brand-title">Sổ chi tiêu</span>
-        <span class="brand-sub">Thống kê khoản đã nhập &amp; tổng tiền</span>
+        <span class="brand-title">Sổ chi tiêu chung</span>
+        <span class="brand-sub">Nhiều người cùng nhập · tổng tiền tính bằng C++</span>
       </span>
     </a>
     <div class="header-meta">
@@ -32,15 +32,34 @@
     <section class="card form-card" aria-labelledby="form-title">
       <div class="card-head">
         <div>
-          <h2 id="form-title">Nhập khoản chi</h2>
-          <p class="card-sub">Mỗi dòng là một khoản bạn đã chi.</p>
+          <h2 id="form-title">Thêm khoản chi</h2>
+          <p class="card-sub">Khoản bạn thêm sẽ hiện với mọi người dùng sổ.</p>
         </div>
+      </div>
+
+      <div class="banner" id="write-banner" data-tone="info" hidden>
+        <p id="write-banner-text">Đang ở chế độ chỉ xem: chưa có quyền ghi vào kho dữ liệu chung.</p>
+        <div class="banner-actions">
+          <button type="button" class="link-btn" id="token-toggle" aria-expanded="false" aria-controls="token-form">Dùng token GitHub của tôi</button>
+          <a class="link-btn" href="https://github.com/ngominhkhoi150889/quan-li-chi-tieu#b%E1%BA%ADt-quy%E1%BB%81n-th%C3%AAm" target="_blank" rel="noopener">Hướng dẫn</a>
+        </div>
+        <form class="token-form" id="token-form" hidden>
+          <label class="sr-only" for="token-input">GitHub token có quyền Issues trên kho dữ liệu</label>
+          <input id="token-input" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…" />
+          <button type="submit" class="btn small" id="token-save">Lưu token</button>
+        </form>
+        <p class="token-error" id="token-error" role="alert"></p>
       </div>
 
       <form id="entry-form" novalidate>
         <div class="field">
           <label for="entry-name">Tên khoản chi</label>
           <input id="entry-name" name="name" type="text" placeholder="Ví dụ: Cà phê, tiền điện, xăng…" maxlength="120" autocomplete="off" />
+        </div>
+
+        <div class="field">
+          <label for="entry-desc">Mô tả <span class="optional">(không bắt buộc)</span></label>
+          <textarea id="entry-desc" name="description" rows="2" maxlength="500" placeholder="Ví dụ: tiền điện tháng 11 của nhà trọ"></textarea>
         </div>
 
         <div class="field-row">
@@ -56,17 +75,20 @@
 
         <p class="hint">Thành tiền = số lượng × đơn giá, được tính trong C++.</p>
         <p id="form-error" class="form-error" role="alert"></p>
+        <p id="form-notice" class="banner" data-tone="success" role="status" hidden></p>
 
         <div class="form-actions">
           <button type="submit" class="btn primary" id="submit-btn" disabled>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-            Thêm khoản chi
+            <span id="submit-label">Thêm khoản chi</span>
           </button>
-          <button type="button" class="btn ghost danger" id="clear-btn" disabled>Xóa tất cả</button>
         </div>
       </form>
 
-      <p class="storage-note">Dữ liệu được lưu tự động trên trình duyệt của bạn.</p>
+      <p class="storage-note">
+        <span>Dữ liệu chung lưu trong GitHub Issues · ai có link đều xem được.</span>
+        <button type="button" class="link-btn" id="token-remove" hidden>Xóa token của tôi</button>
+      </p>
     </section>
 
     <section class="content" aria-label="Thống kê và danh sách khoản chi">
@@ -97,9 +119,22 @@
         <div class="card-head">
           <div>
             <h2 id="list-title">Các khoản đã nhập</h2>
-            <p class="card-sub" id="list-sub">Danh sách do C++ quản lý.</p>
+            <p class="card-sub" id="list-sub">Dữ liệu chung từ GitHub Issues.</p>
           </div>
-          <span class="counter" id="list-count">0 khoản</span>
+          <div class="head-actions">
+            <span class="counter" id="list-count">0 khoản</span>
+            <button type="button" class="btn ghost small" id="refresh-btn" title="Tải lại danh sách từ GitHub">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 3v6h-6" /></svg>
+              <span>Làm mới</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="banner" id="list-error" data-tone="error" hidden>
+          <p id="list-error-text"></p>
+          <div class="banner-actions">
+            <button type="button" class="btn small" id="retry-btn">Thử lại</button>
+          </div>
         </div>
 
         <div class="table-wrap" id="table-wrap" hidden>
@@ -107,11 +142,10 @@
             <thead>
               <tr>
                 <th class="col-index">#</th>
-                <th>Tên khoản chi</th>
+                <th>Khoản chi</th>
                 <th class="num">SL</th>
                 <th class="num">Đơn giá</th>
                 <th class="num">Thành tiền</th>
-                <th class="col-action"><span class="sr-only">Thao tác</span></th>
               </tr>
             </thead>
             <tbody id="entries-body"></tbody>
@@ -125,8 +159,8 @@
             <circle cx="76" cy="72" r="16" fill="currentColor" opacity="0.12" />
             <path d="M69 72h14M76 65v14" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
           </svg>
-          <h3>Chưa có khoản chi nào</h3>
-          <p>Nhập khoản chi đầu tiên ở khung bên trái để bắt đầu thống kê.</p>
+          <h3>Sổ chưa có khoản chi nào</h3>
+          <p>Thêm khoản chi đầu tiên — mọi người dùng sổ đều sẽ thấy.</p>
         </div>
       </section>
 
@@ -145,8 +179,11 @@
   </main>
 
   <footer class="site-footer">
-    <span>Core C++ biên dịch bằng Emscripten · Dữ liệu lưu cục bộ trên trình duyệt.</span>
-    <a href="https://github.com/ngominhkhoi150889/quan-li-chi-tieu" target="_blank" rel="noopener">Mã nguồn trên GitHub</a>
+    <span>Core C++ biên dịch bằng Emscripten · dữ liệu chung lưu trong GitHub Issues.</span>
+    <span class="footer-links">
+      <a href="https://github.com/ngominhkhoi150889/quan-li-data" target="_blank" rel="noopener">Kho dữ liệu chung</a>
+      <a href="https://github.com/ngominhkhoi150889/quan-li-chi-tieu" target="_blank" rel="noopener">Mã nguồn trên GitHub</a>
+    </span>
   </footer>
 
   <script src="core.js"></script>
