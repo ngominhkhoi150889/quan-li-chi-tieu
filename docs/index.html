@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Ứng dụng thống kê khoản chi tiêu và tổng tiền, xử lý bằng C++ biên dịch sang WebAssembly." />
+  <title>Sổ chi tiêu · C++ WebAssembly</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2310b981'/%3E%3Ctext x='32' y='45' font-size='38' text-anchor='middle' fill='white' font-family='Arial'%3E%E2%82%AB%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="is-loading">
+  <div class="backdrop" aria-hidden="true">
+    <span class="orb orb-a"></span>
+    <span class="orb orb-b"></span>
+  </div>
+
+  <header class="site-header">
+    <a class="brand" href="#">
+      <span class="brand-mark" aria-hidden="true">₫</span>
+      <span class="brand-text">
+        <span class="brand-title">Sổ chi tiêu</span>
+        <span class="brand-sub">Thống kê khoản đã nhập &amp; tổng tiền</span>
+      </span>
+    </a>
+    <div class="header-meta">
+      <span class="tech-badge"><span class="pulse" aria-hidden="true"></span>C++ · WebAssembly</span>
+      <span id="runtime-status" class="runtime-status" data-state="loading">Đang tải bộ xử lý…</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="card form-card" aria-labelledby="form-title">
+      <div class="card-head">
+        <div>
+          <h2 id="form-title">Nhập khoản chi</h2>
+          <p class="card-sub">Mỗi dòng là một khoản bạn đã chi.</p>
+        </div>
+      </div>
+
+      <form id="entry-form" novalidate>
+        <div class="field">
+          <label for="entry-name">Tên khoản chi</label>
+          <input id="entry-name" name="name" type="text" placeholder="Ví dụ: Cà phê, tiền điện, xăng…" maxlength="120" autocomplete="off" />
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="entry-qty">Số lượng</label>
+            <input id="entry-qty" name="qty" type="number" min="0.01" step="any" value="1" inputmode="decimal" />
+          </div>
+          <div class="field">
+            <label for="entry-price">Đơn giá (VND)</label>
+            <input id="entry-price" name="price" type="number" min="0" step="any" placeholder="0" inputmode="decimal" />
+          </div>
+        </div>
+
+        <p class="hint">Thành tiền = số lượng × đơn giá, được tính trong C++.</p>
+        <p id="form-error" class="form-error" role="alert"></p>
+
+        <div class="form-actions">
+          <button type="submit" class="btn primary" id="submit-btn" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            Thêm khoản chi
+          </button>
+          <button type="button" class="btn ghost danger" id="clear-btn" disabled>Xóa tất cả</button>
+        </div>
+      </form>
+
+      <p class="storage-note">Dữ liệu được lưu tự động trên trình duyệt của bạn.</p>
+    </section>
+
+    <section class="content" aria-label="Thống kê và danh sách khoản chi">
+      <div class="stats">
+        <article class="stat stat-total">
+          <span class="stat-label">Tổng tiền</span>
+          <strong class="stat-value" id="stat-total" aria-live="polite">0 ₫</strong>
+          <span class="stat-caption" id="stat-caption">Chưa có khoản nào</span>
+        </article>
+        <article class="stat">
+          <span class="stat-label">Số khoản</span>
+          <strong class="stat-value" id="stat-count">0</strong>
+          <span class="stat-caption">lượt nhập</span>
+        </article>
+        <article class="stat">
+          <span class="stat-label">Tổng số lượng</span>
+          <strong class="stat-value" id="stat-qty">0</strong>
+          <span class="stat-caption">đơn vị</span>
+        </article>
+        <article class="stat">
+          <span class="stat-label">Trung bình / khoản</span>
+          <strong class="stat-value" id="stat-average">0 ₫</strong>
+          <span class="stat-caption">theo tổng tiền</span>
+        </article>
+      </div>
+
+      <section class="card list-card" aria-labelledby="list-title">
+        <div class="card-head">
+          <div>
+            <h2 id="list-title">Các khoản đã nhập</h2>
+            <p class="card-sub" id="list-sub">Danh sách do C++ quản lý.</p>
+          </div>
+          <span class="counter" id="list-count">0 khoản</span>
+        </div>
+
+        <div class="table-wrap" id="table-wrap" hidden>
+          <table>
+            <thead>
+              <tr>
+                <th class="col-index">#</th>
+                <th>Tên khoản chi</th>
+                <th class="num">SL</th>
+                <th class="num">Đơn giá</th>
+                <th class="num">Thành tiền</th>
+                <th class="col-action"><span class="sr-only">Thao tác</span></th>
+              </tr>
+            </thead>
+            <tbody id="entries-body"></tbody>
+          </table>
+        </div>
+
+        <div class="empty" id="empty-state">
+          <svg viewBox="0 0 96 96" aria-hidden="true">
+            <rect x="18" y="10" width="60" height="76" rx="10" fill="none" stroke="currentColor" stroke-width="3" />
+            <path d="M32 34h32M32 48h32M32 62h20" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+            <circle cx="76" cy="72" r="16" fill="currentColor" opacity="0.12" />
+            <path d="M69 72h14M76 65v14" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+          </svg>
+          <h3>Chưa có khoản chi nào</h3>
+          <p>Nhập khoản chi đầu tiên ở khung bên trái để bắt đầu thống kê.</p>
+        </div>
+      </section>
+
+      <section class="card breakdown-card" aria-labelledby="breakdown-title">
+        <div class="card-head">
+          <div>
+            <h2 id="breakdown-title">Thống kê theo mặt hàng</h2>
+            <p class="card-sub" id="breakdown-sub">Các khoản trùng tên được gộp lại.</p>
+          </div>
+          <span class="counter" id="breakdown-count">0 mặt hàng</span>
+        </div>
+        <ul class="breakdown-list" id="breakdown-list"></ul>
+        <p class="muted" id="breakdown-empty">Chưa có dữ liệu để thống kê.</p>
+      </section>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>Core C++ biên dịch bằng Emscripten · Dữ liệu lưu cục bộ trên trình duyệt.</span>
+    <a href="https://github.com/ngominhkhoi150889/quan-li-chi-tieu" target="_blank" rel="noopener">Mã nguồn trên GitHub</a>
+  </footer>
+
+  <script src="core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
