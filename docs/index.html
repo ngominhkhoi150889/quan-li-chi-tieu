@@ -38,13 +38,13 @@
       </div>
 
       <div class="banner" id="write-banner" data-tone="info" hidden>
-        <p id="write-banner-text">Khoản chi mới được tạo trên GitHub. Bấm thêm để mở form issue đã điền sẵn rồi gửi bằng tài khoản GitHub của bạn — mọi người cùng xem, chỉ tạo mới chứ không sửa khoản của người khác.</p>
+        <p id="write-banner-text">Dữ liệu chung nằm trong một file <code>ledger.json</code> trên GitHub; ai cũng xem được. Để bấm Lưu là ghi thẳng vào file, dán fine-grained token (Contents: Read and write) một lần trên máy bạn — token chỉ lưu trên trình duyệt này.</p>
         <div class="banner-actions">
-          <button type="button" class="link-btn" id="token-toggle" aria-expanded="false" aria-controls="token-form">Thêm ngay trong trang bằng token</button>
-          <a class="link-btn" href="https://github.com/ngominhkhoi150889/quan-li-chi-tieu#b%E1%BA%ADt-quy%E1%BB%81n-th%C3%AAm" target="_blank" rel="noopener">Hướng dẫn</a>
+          <button type="button" class="link-btn" id="token-toggle" aria-expanded="false" aria-controls="token-form">Bật ghi trực tiếp bằng token</button>
+          <a class="link-btn" href="https://github.com/ngominhkhoi150889/quan-li-chi-tieu#th%C3%AAm-kho%E1%BA%A3n-chi" target="_blank" rel="noopener">Hướng dẫn</a>
         </div>
         <form class="token-form" id="token-form" hidden>
-          <label class="sr-only" for="token-input">GitHub token có quyền Issues trên kho dữ liệu</label>
+          <label class="sr-only" for="token-input">GitHub token có quyền Contents trên kho dữ liệu</label>
           <input id="token-input" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…" />
           <button type="submit" class="btn small" id="token-save">Lưu token</button>
           <p class="token-hint">Token chỉ lưu trên trình duyệt này và chỉ gửi tới api.github.com.</p>
@@ -81,13 +81,13 @@
         <div class="form-actions">
           <button type="submit" class="btn primary" id="submit-btn" disabled>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-            <span id="submit-label">Thêm qua GitHub</span>
+            <span id="submit-label">Lưu khoản chi</span>
           </button>
         </div>
       </form>
 
       <p class="storage-note">
-        <span>Dữ liệu chung trên GitHub Issues · ai cũng xem và tạo mới được, không sửa được khoản của người khác.</span>
+        <span>Dữ liệu chung trong file <code>ledger.json</code> trên GitHub · ai cũng xem, chỉ thêm được khoản mới.</span>
         <button type="button" class="link-btn" id="token-remove" hidden>Xóa token của tôi</button>
       </p>
     </section>
@@ -120,11 +120,11 @@
         <div class="card-head">
           <div>
             <h2 id="list-title">Các khoản đã nhập</h2>
-            <p class="card-sub" id="list-sub">Dữ liệu chung từ GitHub Issues.</p>
+            <p class="card-sub" id="list-sub">Dữ liệu chung từ file ledger.json trên GitHub.</p>
           </div>
           <div class="head-actions">
             <span class="counter" id="list-count">0 khoản</span>
-            <button type="button" class="btn ghost small" id="refresh-btn" title="Tải lại danh sách từ GitHub">
+            <button type="button" class="btn ghost small" id="refresh-btn" title="Tải lại file dữ liệu từ GitHub">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 3v6h-6" /></svg>
               <span>Làm mới</span>
             </button>
@@ -180,9 +180,9 @@
   </main>
 
   <footer class="site-footer">
-    <span>Core C++ biên dịch bằng Emscripten · dữ liệu chung lưu trong GitHub Issues.</span>
+    <span>Core C++ biên dịch bằng Emscripten · dữ liệu chung lưu trong file ledger.json trên GitHub.</span>
     <span class="footer-links">
-      <a href="https://github.com/ngominhkhoi150889/quan-li-data" target="_blank" rel="noopener">Kho dữ liệu chung</a>
+      <a href="https://github.com/ngominhkhoi150889/quan-li-data/blob/main/ledger.json" target="_blank" rel="noopener">File dữ liệu chung</a>
       <a href="https://github.com/ngominhkhoi150889/quan-li-chi-tieu" target="_blank" rel="noopener">Mã nguồn trên GitHub</a>
     </span>
   </footer>
