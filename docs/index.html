@@ -38,7 +38,7 @@
       </div>
 
       <div class="banner" id="write-banner" data-tone="info" hidden>
-        <p id="write-banner-text">Dữ liệu chung nằm trong một file <code>ledger.json</code> trên GitHub; ai cũng xem được. Để bấm Lưu là ghi thẳng vào file, dán fine-grained token (Contents: Read and write) một lần trên máy bạn — token chỉ lưu trên trình duyệt này.</p>
+        <p id="write-banner-text">Dữ liệu chung nằm trong một file <code>ledger.json</code> trên GitHub; ai cũng xem được. Dán fine-grained token một lần (Contents: Read and write) — sau đó bấm Lưu là ghi thẳng vào file, không mở tab GitHub. Token chỉ lưu trên trình duyệt này.</p>
         <div class="banner-actions">
           <button type="button" class="link-btn" id="token-toggle" aria-expanded="false" aria-controls="token-form">Bật ghi trực tiếp bằng token</button>
           <a class="link-btn" href="https://github.com/ngominhkhoi150889/quan-li-chi-tieu#th%C3%AAm-kho%E1%BA%A3n-chi" target="_blank" rel="noopener">Hướng dẫn</a>
@@ -47,7 +47,7 @@
           <label class="sr-only" for="token-input">GitHub token có quyền Contents trên kho dữ liệu</label>
           <input id="token-input" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…" />
           <button type="submit" class="btn small" id="token-save">Lưu token</button>
-          <p class="token-hint">Token chỉ lưu trên trình duyệt này và chỉ gửi tới api.github.com.</p>
+          <p class="token-hint">Token chỉ lưu trên trình duyệt này và chỉ gửi tới api.github.com. Chưa có token? <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Tạo fine-grained token</a> — chọn repo <code>quan-li-data</code>, quyền <strong>Contents: Read and write</strong>.</p>
         </form>
         <p class="token-error" id="token-error" role="alert"></p>
       </div>
