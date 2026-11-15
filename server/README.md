@@ -24,6 +24,22 @@ npx wrangler secret put GITHUB_TOKEN
 npx wrangler deploy
 ```
 
+Trên Windows, mở PowerShell tại `D:\quan-li\server` rồi chạy (dùng `npx.cmd` để tránh bị chặn script `.ps1`):
+
+```powershell
+npx.cmd wrangler login
+npx.cmd wrangler secret put GITHUB_TOKEN
+npx.cmd wrangler deploy
+```
+
+Nếu PowerShell báo không tìm thấy `npx`, thêm Node có sẵn trong emsdk cho phiên làm việc:
+
+```powershell
+$env:Path += ";C:\Users\KHOICOI\emsdk\node\24.19.0_64bit"
+```
+
+hoặc cài Node LTS bằng `winget install OpenJS.NodeJS.LTS` rồi mở lại PowerShell.
+
 4. Copy URL in ra (dạng `https://quan-li-ledger.<tài-khoản>.workers.dev`) và ghi vào `docs/backend.json`:
 
 ```json
