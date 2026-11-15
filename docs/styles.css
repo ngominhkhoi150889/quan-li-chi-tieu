@@ -467,6 +467,13 @@ textarea::placeholder {
   display: none;
 }
 
+.token-hint {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  font-size: 0.72rem;
+  opacity: 0.8;
+}
+
 .btn svg {
   width: 18px;
   height: 18px;

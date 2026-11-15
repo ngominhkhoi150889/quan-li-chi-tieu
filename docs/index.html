@@ -38,15 +38,16 @@
       </div>
 
       <div class="banner" id="write-banner" data-tone="info" hidden>
-        <p id="write-banner-text">Đang ở chế độ chỉ xem: chưa có quyền ghi vào kho dữ liệu chung.</p>
+        <p id="write-banner-text">Khoản chi mới được tạo trên GitHub. Bấm thêm để mở form issue đã điền sẵn rồi gửi bằng tài khoản GitHub của bạn — mọi người cùng xem, chỉ tạo mới chứ không sửa khoản của người khác.</p>
         <div class="banner-actions">
-          <button type="button" class="link-btn" id="token-toggle" aria-expanded="false" aria-controls="token-form">Dùng token GitHub của tôi</button>
+          <button type="button" class="link-btn" id="token-toggle" aria-expanded="false" aria-controls="token-form">Thêm ngay trong trang bằng token</button>
           <a class="link-btn" href="https://github.com/ngominhkhoi150889/quan-li-chi-tieu#b%E1%BA%ADt-quy%E1%BB%81n-th%C3%AAm" target="_blank" rel="noopener">Hướng dẫn</a>
         </div>
         <form class="token-form" id="token-form" hidden>
           <label class="sr-only" for="token-input">GitHub token có quyền Issues trên kho dữ liệu</label>
           <input id="token-input" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…" />
           <button type="submit" class="btn small" id="token-save">Lưu token</button>
+          <p class="token-hint">Token chỉ lưu trên trình duyệt này và chỉ gửi tới api.github.com.</p>
         </form>
         <p class="token-error" id="token-error" role="alert"></p>
       </div>
@@ -80,13 +81,13 @@
         <div class="form-actions">
           <button type="submit" class="btn primary" id="submit-btn" disabled>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-            <span id="submit-label">Thêm khoản chi</span>
+            <span id="submit-label">Thêm qua GitHub</span>
           </button>
         </div>
       </form>
 
       <p class="storage-note">
-        <span>Dữ liệu chung lưu trong GitHub Issues · ai có link đều xem được.</span>
+        <span>Dữ liệu chung trên GitHub Issues · ai cũng xem và tạo mới được, không sửa được khoản của người khác.</span>
         <button type="button" class="link-btn" id="token-remove" hidden>Xóa token của tôi</button>
       </p>
     </section>

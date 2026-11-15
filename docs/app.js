@@ -34,6 +34,7 @@
     error: document.getElementById('form-error'),
     notice: document.getElementById('form-notice'),
     submit: document.getElementById('submit-btn'),
+    submitLabel: document.getElementById('submit-label'),
     status: document.getElementById('runtime-status'),
     total: document.getElementById('stat-total'),
     caption: document.getElementById('stat-caption'),
@@ -72,6 +73,7 @@
   let loading = false;
   let submitting = false;
   let pendingRetry = null;
+  let awaitingGithub = false;
   let noticeTimer = 0;
   let refreshTimer = 0;
 
@@ -112,12 +114,12 @@
     el.error.textContent = message || '';
   }
 
-  function setNotice(message, tone) {
+  function setNotice(message, tone, sticky) {
     clearTimeout(noticeTimer);
     el.notice.textContent = message || '';
     el.notice.dataset.tone = tone || 'success';
     el.notice.hidden = !message;
-    if (message) {
+    if (message && !sticky) {
       noticeTimer = setTimeout(() => {
         el.notice.hidden = true;
       }, 8000);
@@ -143,8 +145,11 @@
     const canWrite = Boolean(token);
     el.writeBanner.hidden = canWrite;
     el.tokenRemove.hidden = !token || Boolean(sharedToken);
-    el.submit.disabled = !canWrite || !core || submitting;
-    el.submit.title = canWrite ? '' : 'Cần token GitHub có quyền Issues trên kho dữ liệu để thêm khoản chi';
+    el.submit.disabled = !core || submitting;
+    el.submitLabel.textContent = canWrite ? 'Thêm khoản chi' : 'Thêm qua GitHub';
+    el.submit.title = canWrite
+      ? 'Ghi khoản chi trực tiếp vào sổ chung'
+      : 'Mở form tạo issue trên GitHub để ghi khoản chi vào sổ chung';
     if (!canWrite) {
       el.tokenForm.hidden = true;
       el.tokenToggle.setAttribute('aria-expanded', 'false');
@@ -269,6 +274,27 @@
     }
 
     return { issues, truncated: capped };
+  }
+
+  function prefilledIssueUrl(draft) {
+    const marker = encodeMarker({
+      qty: draft.qty,
+      price: draft.price,
+      description: draft.description,
+    });
+    const body = draft.description ? `${draft.description}\n\n${marker}` : marker;
+    const params = new URLSearchParams({ title: draft.name, body });
+    return `${repositoryUrl()}/issues/new?${params.toString()}`;
+  }
+
+  function openIssueForm(draft) {
+    const link = document.createElement('a');
+    link.href = prefilledIssueUrl(draft);
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.append(link);
+    link.click();
+    link.remove();
   }
 
   async function createIssue(draft) {
@@ -537,7 +563,7 @@
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (!core || !token || submitting) return;
+    if (!core || submitting) return;
 
     const name = el.name.value.trim();
     const description = el.desc.value.trim();
@@ -566,6 +592,15 @@
     }
 
     const draft = { name, description, qty, price };
+
+    if (!token) {
+      openIssueForm(draft);
+      setError('');
+      awaitingGithub = true;
+      setNotice('Đã mở GitHub trong tab mới. Bấm "Submit new issue" để ghi khoản chi vào sổ chung.', 'success', true);
+      return;
+    }
+
     const fingerprint = JSON.stringify(draft);
     const reuseKey = pendingRetry && pendingRetry.fingerprint === fingerprint ? pendingRetry.key : '';
     const clientKey = reuseKey || createClientKey();
@@ -731,6 +766,11 @@
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden || !core) return;
+    if (awaitingGithub) {
+      awaitingGithub = false;
+      loadEntries();
+      return;
+    }
     if (Date.now() - lastLoadedAt < STALE_AFTER_MS) return;
     loadEntries();
   });
