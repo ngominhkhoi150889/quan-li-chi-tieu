@@ -2,6 +2,8 @@
 
 Ứng dụng web ghi lại các khoản chi (tên, mô tả, số lượng, đơn giá), tính thành tiền, tổng tiền và thống kê theo mặt hàng. Danh sách được **nhiều người dùng chung**: ai có link đều xem được, dữ liệu nằm trong **một file JSON trên GitHub**. Toàn bộ phần tính toán viết bằng **C++**, biên dịch sang **WebAssembly** bằng Emscripten.
 
+Khi đã cấu hình backend (Cloudflare Worker), **bất kỳ ai cũng bấm Lưu được ngay trong trang, không cần token** — token GitHub chỉ nằm trong secret của Worker.
+
 ## Demo
 
 - Ứng dụng: https://ngominhkhoi150889.github.io/quan-li-chi-tieu/
@@ -43,9 +45,32 @@ Repo công khai riêng là [`quan-li-data`](https://github.com/ngominhkhoi150889
 - Khi ghi, ứng dụng đọc file kèm `sha`, thêm khoản mới rồi `PUT` lại file. Nếu người khác vừa ghi trước, GitHub trả `409`, ứng dụng đọc lại và thử lại (tối đa 4 lần) nên không ghi đè dữ liệu của người khác.
 - Ứng dụng không gọi API sửa/xoá nào; để ẩn dữ liệu phải sửa file bằng tay trên GitHub.
 
-## Thêm khoản chi
+## Ghi không cần token (khuyến nghị)
 
-GitHub yêu cầu xác thực cho mọi thao tác ghi file, nên trang tĩnh cần một token ghi. Token **không** được nhúng vào trang (ai mở web cũng đọc được và có thể sửa/xoá dữ liệu); mỗi người ghi dán token của mình một lần:
+GitHub không cho phép ghi file ẩn danh, nên để **mọi người lưu được mà không phải dán token**, thư mục [`server/`](server) chứa một **Cloudflare Worker** giữ token GitHub ở phía máy chủ:
+
+```
+Trình duyệt ──POST /entries──▶ Worker (giữ token GitHub) ──PUT──▶ quan-li-data/ledger.json
+```
+
+- Trang chỉ gọi Worker; token không bao giờ có trong HTML/JS và không gửi về trình duyệt.
+- Worker chỉ có hai thao tác: đọc sổ và **thêm** khoản mới — không có endpoint sửa/xoá.
+- Worker tự đọc `sha`, gộp khoản mới rồi ghi lại; nếu người khác vừa ghi trước (`409`) thì đọc lại và thử lại, tối đa 4 lần.
+- Mã nguồn: [`server/worker.js`](server/worker.js) · cấu hình [`server/wrangler.toml`](server/wrangler.toml) · hướng dẫn deploy [`server/README.md`](server/README.md).
+
+Bật chế độ này bằng cách triển khai Worker rồi ghi URL vào [`docs/backend.json`](docs/backend.json):
+
+```json
+{
+  "url": "https://quan-li-ledger.<tài-khoản>.workers.dev"
+}
+```
+
+Khi `url` để trống, trang quay về chế độ token dán một lần như mô tả bên dưới.
+
+## Thêm khoản chi (chế độ token, khi chưa có backend)
+
+GitHub yêu cầu xác thực cho mọi thao tác ghi file, nên nếu chưa triển khai Worker thì trang tĩnh cần một token ghi. Token **không** được nhúng vào trang (ai mở web cũng đọc được và có thể sửa/xoá dữ liệu); mỗi người ghi dán token của mình một lần:
 
 1. Tạo **fine-grained token** ở https://github.com/settings/personal-access-tokens/new.
 2. **Repository access** = `Only select repositories` → `quan-li-data`.
@@ -60,10 +85,14 @@ Không có token thì vẫn xem được toàn bộ sổ, nhưng nút lưu sẽ 
 ```
 Trình duyệt
 ├── docs/index.html + styles.css   Giao diện
-├── docs/app.js                    Đọc/ghi ledger.json qua GitHub API, gọi core C++
+├── docs/app.js                    Đọc/ghi ledger.json (Worker hoặc GitHub API), gọi core C++
+├── docs/backend.json              URL Worker (rỗng = chế độ token)
 └── docs/core.js + core.wasm       Core C++ đã biên dịch bằng Emscripten
         ▲
         └── src/core.cpp           Giữ bản sao danh sách, tính tiền và thống kê
+
+Cloudflare Worker (server/)
+└── /entries                       Giữ token GitHub, chỉ đọc và thêm khoản
 
 GitHub
 └── quan-li-data/ledger.json       Nguồn dữ liệu chung, chỉ thêm khoản mới
@@ -88,8 +117,13 @@ Các hàm C++ được export qua Embind:
 │   ├── index.html
 │   ├── styles.css
 │   ├── app.js
+│   ├── backend.json    # URL Worker ghi dữ liệu
 │   ├── core.js         # Sinh ra bởi build
 │   └── core.wasm       # Sinh ra bởi build
+├── server/             # Cloudflare Worker giữ token GitHub
+│   ├── worker.js
+│   ├── wrangler.toml
+│   └── README.md
 ├── scripts/build.sh    # Script build WebAssembly
 └── README.md
 ```
@@ -132,7 +166,7 @@ python -m http.server 8080 --directory docs
 
 Mở http://localhost:8080. Trang đọc file thật từ `quan-li-data`.
 
-Muốn thử phần ghi khi chạy local, tạo `docs/config.json` (đã nằm trong `.gitignore`, không commit) rồi tải lại trang:
+Muốn thử phần ghi khi chạy local mà chưa deploy Worker, tạo `docs/config.json` (đã nằm trong `.gitignore`, không commit) rồi tải lại trang:
 
 ```json
 {
@@ -147,7 +181,8 @@ Chỉ dùng cách này trên máy cá nhân; tệp cấu hình chứa token khô
 
 ## Giới hạn hiện tại
 
-- Hiển thị tối đa 5000 khoản gần nhất.
+- Hiển thị tối đa 5000 khoản gần nhất (file chứa tối đa 20000 khoản do Worker cắt bớt phần cũ).
 - Ứng dụng không có sửa/xoá; muốn sửa dữ liệu phải sửa `ledger.json` trực tiếp trên GitHub.
-- Đọc công khai qua Contents API bị giới hạn 60 request/giờ mỗi IP; trang giãn nhịp làm mới (5 phút/lần khi tab đang mở) và tự chuyển sang đọc raw.githubusercontent.com khi bị giới hạn. Khi có token, hạn mức cao hơn nhiều.
+- Đọc công khai qua Contents API bị giới hạn 60 request/giờ mỗi IP; trang giãn nhịp làm mới (5 phút/lần khi tab đang mở) và tự chuyển sang đọc raw.githubusercontent.com khi bị giới hạn. Khi có token, hạn mức cao hơn nhiều. Ở chế độ backend, trang đọc qua Worker (15 giây cache) nên không đụng hạn mức ẩn danh.
 - Ghi cần token `Contents: Read and write`; hai người ghi cùng lúc được xử lý bằng `sha` + thử lại, không ghi đè nhau.
+- Ai biết URL Worker đều thêm được khoản mới — đúng thiết kế "ai cũng thêm được". Nếu bị spam, bật Cloudflare Turnstile hoặc rate limit; Cloudflare Workers free cho 100.000 request/ngày.

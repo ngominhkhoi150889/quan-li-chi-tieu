@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const DEFAULT_CONFIG = { owner: 'ngominhkhoi150889', repo: 'quan-li-data', branch: 'main', token: '' };
+  const DEFAULT_CONFIG = { owner: 'ngominhkhoi150889', repo: 'quan-li-data', branch: 'main', token: '', backendUrl: '' };
   const config = Object.assign({}, DEFAULT_CONFIG);
 
   const TOKEN_STORAGE_KEY = 'so-chi-tieu-token-v1';
@@ -63,6 +63,7 @@
     tokenSave: document.getElementById('token-save'),
     tokenError: document.getElementById('token-error'),
     tokenRemove: document.getElementById('token-remove'),
+    storageNote: document.getElementById('storage-note-text'),
   };
 
   let core = null;
@@ -175,7 +176,7 @@
   }
 
   function updateWriteState() {
-    const canWrite = Boolean(token);
+    const canWrite = Boolean(config.backendUrl) || Boolean(token);
     el.writeBanner.hidden = canWrite;
     el.tokenRemove.hidden = !token || Boolean(sharedToken);
     el.submit.disabled = !core || submitting;
@@ -186,6 +187,11 @@
     if (canWrite) {
       el.tokenForm.hidden = true;
       el.tokenToggle.setAttribute('aria-expanded', 'false');
+    }
+    if (el.storageNote) {
+      el.storageNote.textContent = config.backendUrl
+        ? `Dữ liệu chung trong file ${LEDGER_FILE} trên GitHub · ai cũng xem và thêm được, không sửa được khoản đã lưu.`
+        : `Dữ liệu chung trong file ${LEDGER_FILE} trên GitHub · ai cũng xem, chỉ thêm được khoản mới.`;
     }
   }
 
@@ -296,7 +302,65 @@
     return parseLedger(await response.text());
   }
 
+  async function fetchLedgerFromBackend() {
+    let response;
+    try {
+      response = await fetch(`${config.backendUrl}/entries`, { cache: 'no-store' });
+    } catch (error) {
+      throw new LedgerError('network', 'Không kết nối được tới máy chủ dữ liệu.');
+    }
+    if (response.status === 404) return { entries: [], updatedAt: '' };
+    if (!response.ok) throw new LedgerError('http', `Máy chủ dữ liệu trả về lỗi ${response.status}.`);
+    return parseLedger(await response.text());
+  }
+
+  async function postEntry(draft, clientKey) {
+    let response;
+    try {
+      response = await fetch(`${config.backendUrl}/entries`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientKey,
+          name: draft.name,
+          description: draft.description,
+          qty: draft.qty,
+          price: draft.price,
+        }),
+      });
+    } catch (error) {
+      throw new LedgerError('network', 'Không kết nối được tới máy chủ ghi dữ liệu.');
+    }
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (error) {
+      data = null;
+    }
+
+    if (!response.ok) {
+      const message = data && typeof data.error === 'string' ? data.error : '';
+      if (response.status === 400) throw new LedgerError('rejected', message || 'Dữ liệu không hợp lệ.');
+      if (response.status === 429) throw new LedgerError('rate_limit', message || 'Tạm giới hạn ghi, thử lại sau.');
+      if (response.status === 503) throw new LedgerError('conflict', message || 'File dữ liệu đang cập nhật, thử lại sau.');
+      throw new LedgerError('server', message || 'Máy chủ ghi dữ liệu gặp lỗi.');
+    }
+
+    const entry = sanitizeEntry(data && data.entry);
+    if (!entry) throw new LedgerError('server', 'Máy chủ trả về dữ liệu không hợp lệ.');
+    return { entry, created: !data || data.created !== false };
+  }
+
   async function fetchLedger() {
+    if (config.backendUrl) {
+      try {
+        return await fetchLedgerFromBackend();
+      } catch (error) {
+        console.warn('Máy chủ ghi không phản hồi, đọc trực tiếp GitHub.', error);
+      }
+    }
+
     let response;
     try {
       response = await fetch(`${contentsUrl()}?ref=${encodeURIComponent(config.branch)}`, {
@@ -649,7 +713,7 @@
 
     const draft = { name, description, qty, price };
 
-    if (!token) {
+    if (!config.backendUrl && !token) {
       el.tokenForm.hidden = false;
       el.tokenToggle.setAttribute('aria-expanded', 'true');
       el.tokenError.textContent = `Cần token GitHub (Contents: Read and write) để ghi vào ${LEDGER_FILE}. Dán token một lần rồi bấm "Lưu khoản chi".`;
@@ -671,6 +735,27 @@
     updateWriteState();
 
     try {
+      if (config.backendUrl) {
+        // Máy chủ ghi giữ token GitHub: trình duyệt không cần token, không thấy token.
+        const posted = await postEntry(draft, clientKey);
+        const saved = posted.entry;
+        entries = [saved, ...entries.filter((item) => item.id !== saved.id)];
+        lastLoadedAt = Date.now();
+        persistCache();
+        pendingRetry = null;
+        render();
+        setListSub();
+        el.listError.hidden = true;
+        resetForm();
+        setNotice(
+          posted.created
+            ? `Đã lưu "${saved.name}" vào ${LEDGER_FILE}.`
+            : `"${saved.name}" đã được ghi nhận trước đó.`,
+          'success',
+        );
+        return;
+      }
+
       if (reuseKey) {
         // Lần gửi trước chưa rõ kết quả: đọc lại file trước khi ghi thêm.
         const result = await fetchLedger();
@@ -708,7 +793,7 @@
     } catch (error) {
       if (error && (error.code === 'network' || error.code === 'server' || error.code === 'http' || error.code === 'conflict')) {
         pendingRetry = { key: clientKey, fingerprint };
-        setError('Chưa rõ kết quả ghi lên GitHub. Bấm "Lưu khoản chi" lần nữa để kiểm tra trước khi ghi lại.');
+        setError('Chưa rõ kết quả lưu. Bấm "Lưu khoản chi" lần nữa để kiểm tra trước khi ghi lại.');
       } else {
         pendingRetry = null;
         setError(messageFor(error));
@@ -720,15 +805,20 @@
     }
   }
 
-  async function loadConfig() {
+  async function readConfigFile(name) {
     try {
-      const response = await fetch('config.json', { cache: 'no-store' });
+      const response = await fetch(name, { cache: 'no-store' });
       if (!response.ok) return {};
       const data = await response.json();
       return data && typeof data === 'object' ? data : {};
     } catch (error) {
       return {};
     }
+  }
+
+  async function loadConfig() {
+    const [shared, local] = await Promise.all([readConfigFile('backend.json'), readConfigFile('config.json')]);
+    return Object.assign({}, shared, local);
   }
 
   function applyConfig(remoteConfig) {
@@ -743,6 +833,12 @@
     }
     if (typeof remoteConfig.token === 'string') {
       sharedToken = remoteConfig.token.trim();
+    }
+    const backendValue =
+      typeof remoteConfig.backendUrl === 'string' ? remoteConfig.backendUrl : remoteConfig.url;
+    if (typeof backendValue === 'string') {
+      const url = backendValue.trim().replace(/\/+$/, '');
+      config.backendUrl = /^https:\/\//i.test(url) ? url : '';
     }
     token = sharedToken || readStoredToken();
   }
